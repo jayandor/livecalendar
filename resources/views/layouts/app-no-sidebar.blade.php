@@ -9,17 +9,9 @@
             @include('navbar')
             <div class="container">
                 <div class="row">
-                    <div class="col-lg-9">
+                    <div class="col-lg-12">
                         <div class="container-fluid">
                             @yield('content')
-                        </div>
-                    </div>
-
-                    <div class="col-lg-3 panel panel-default">
-                        <div class="panel-body">
-                            @section('sidebar')
-                                This is the master sidebar.
-                            @show
                         </div>
                     </div>
                 </div>
