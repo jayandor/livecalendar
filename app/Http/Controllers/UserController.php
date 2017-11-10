@@ -8,8 +8,8 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 
 use App\User;
-use App\Transaction;
-
+use App\Role;
+use App\Program;
 use Exception;
 use Validator;
 
@@ -25,17 +25,31 @@ class UserController extends Controller
     {
 
         $currentUser = Auth::user();
+        if ($currentUser->hasRoles('Super-Admin', 'Master-Admin')) {
+            $users = User::all()->sortBy('email');
+        } else {
+            $users = User::active()->get()->sortBy('email');
+        }
+        return view('admin.users', ['users' => $users]);
 
     }
 
     public function create() {
+        $programs = Program::all();
+        $roles = Role::where('role', '!=', 'Master-Admin')->get();
+        return view('admin.create_new_user', ['programs' => $programs, 'roles' => $roles]);
     }
 
     public function store(Request $request) {
 
+        $program_ids = Program::all()->pluck('id')->toArray();
+        $role_ids = Role::all()->pluck('id')->toArray();
+
         $this->validate($request, [
             'email' => 'required|unique:users,email,NULL,id,deleted_at,NULL|max:255',
+            'program_id' => 'required|in:' . implode(',', $program_ids),
             'active' => 'boolean',
+            'roles_id.*' => 'in:' . implode(',', $role_ids),
             'password' => 'required|min:6|same:password_confirm|max:255'
         ]);
 
@@ -46,10 +60,18 @@ class UserController extends Controller
         $user->last_name = $request->last_name;
         $user->email = $request->email;
         $user->password = bcrypt($request->password);
+        $user->program_id = $request->program_id;
 
         $user->save();
+        if ($request->role !== null) {
+            foreach ($request->role as $role) {
+                $user->roles()->attach($role);
+            }
+        }
 
-        return redirect()->route('login');
+        $users = User::all();
+
+        return redirect()->route('users.index');
 
     }
 
@@ -62,10 +84,12 @@ class UserController extends Controller
     public function show(User $user)
     {
         $currentUser = Auth::user();
-        if ($user != $currentUser) {
+        if ($user != $currentUser && ! $currentUser->hasRoles('Admin', 'Super-Admin', 'Master-Admin')) {
             return redirect()->route('access_denied');
         }
-        return view('user.account', ['user' => $user]);
+        $programs = Program::all();
+        $roles = Role::where('role', '!=', 'Master-Admin')->get();
+        return view('user.account', ['user' => $user, 'programs' => $programs, 'roles' => $roles]);
     }
 
     /**
@@ -91,17 +115,24 @@ class UserController extends Controller
         $currentUser = Auth::user();
 
         if (! $user->isSameAs($currentUser)) {
-            return redirect()->route('access_denied');
+            if (! $currentUser->hasRoles('Super-Admin', 'Master-Admin')) {
+                return redirect()->route('access_denied');
+            }
         }
+
+        $program_ids = Program::all()->pluck('id')->toArray();
+        $role_ids = Role::all()->pluck('id')->toArray();
 
         $this->validate($request, [
             'email' => 'required|max:255',
+            'program_id' => 'required|in:' . implode(',', $program_ids),
             'active' => 'boolean',
+            'roles_id.*' => 'in:' . implode(',', $role_ids)
         ]);
 
         $user->first_name = $request->first_name;
         $user->last_name  = $request->last_name;
-        if ($user->isSameAs($currentUser)) {
+        if ($user->isSameAs($currentUser) || $currentUser->hasRoles('Super-Admin', 'Master-Admin')) {
             if ($request->email !== $user->email) {
                 $this->validate($request, [
                     'email' => 'unique:users,email,NULL,id,deleted_at,NULL'
@@ -109,6 +140,7 @@ class UserController extends Controller
             }
             $user->email  = $request->email;
         }
+        $user->program_id = $request->program_id;
         $user->active     = !is_null($request->active);
 
         if ($user->isSameAs($currentUser)) {
@@ -125,8 +157,17 @@ class UserController extends Controller
         }
 
         $user->save();
+        if ($currentUser->hasRoles('Super-Admin', 'Master-Admin')) {
+            $user->roles()->detach();
+            foreach ($request->roles_id as $id) {
+                $user->roles()->attach($id);
+            }
+        }
 
-        return view('user.account', ['user' => $user, 'message' => 'User successfully updated']);
+        $programs = Program::all();
+        $roles = Role::where('role', '!=', 'Master-Admin')->get();
+
+        return view('user.account', ['user' => $user, 'programs'=> $programs, 'message' => 'User successfully updated', 'roles' => $roles]);
     }
 
     /**
@@ -146,6 +187,16 @@ class UserController extends Controller
         return "user deleted";
     }
 
+    public function deleteModal(User $user)
+    {
+        return view('user.delete-modal',
+            [
+                'user' => $user
+            ]
+        );
+
+    }
+
     public function activate(Request $request, User $user) {
         $user->active = true;
         $user->save();
@@ -154,12 +205,6 @@ class UserController extends Controller
     public function deactivate(Request $request, User $user) {
         $user->active = false;
         $user->save();
-    }
-
-    public function api_fetchTransactionData (Request $request, User $user) {
-
-        return $user->transactions;
-
     }
 
 }

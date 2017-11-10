@@ -4,11 +4,12 @@ namespace App;
 
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Passport\HasApiTokens;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
 {
-    use Notifiable, SoftDeletes;
+    use HasApiTokens, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -16,7 +17,7 @@ class User extends Authenticatable
      * @var array
      */
     protected $fillable = [
-        'first_name', 'last_name', 'email', 'password',
+        'name', 'email', 'password',
     ];
 
     /**
@@ -32,7 +33,41 @@ class User extends Authenticatable
 
     public $incrementing = false;
 
-    protected $keyType = 'string';
+    public function roles() {
+        return $this->belongsToMany('App\Role', 'role_user', 'user_id', 'role_id');
+    }
+
+    public function program() {
+        return $this->belongsTo('App\Program');
+    }
+
+    public function registrations() {
+        return $this->hasMany('App\UserRegistration');
+    }
+
+    public function created_forms() {
+        return $this->hasMany('App\Form', 'creator_user_id');
+    }
+
+    public function edited_forms() {
+        return $this->hasMany('App\Form', 'editor_user_id');
+    }
+
+    public function assigner_form_assignments() {
+        return $this->hasMany('App\FormAssignment', 'assigner_user_id');
+    }
+
+    public function hasRoles(...$roles) {
+        return $this->roles()->whereIn('role', $roles)->count() > 0;
+    }
+
+     public function scopeActive($query)
+    {
+        return $query->where('active', '1')
+                     ->whereHas('program', function($query) {
+                        $query->where('deleted_at', '=', null);
+                     });
+    }
 
     public function fullName() {
         return $this->first_name . ' ' . $this->last_name;
@@ -42,28 +77,8 @@ class User extends Authenticatable
         return $this->getKey() == $user->getKey();
     }
 
-    public function calendars() {
-        return $this->hasMany('App\UserCalendar');
+    public static function getUserRegistration() {
+        return UserRegistration::where('registration_number', session('registration_number') )->first();
     }
-
-    // Get calendar by user-specific ID. Each user has their own ID's for their
-    // own calendars, so user A's calendar 1 will be different that user B's
-    // calendar 1. (Note that this ID is different than the canonical calendar
-    // ID)
-    public function user_calendar($user_calendar_id) {
-        return $this->calendars()
-            ->where('user_calendar_id', $this->id);
-    }
-
-    public function transaction_categories() {
-        return $this->hasMany('App\TransactionCategory');
-    }
-
-    public function transactions() {
-        return $this->hasManyThrough(
-            'App\Transaction',
-            'App\UserCalendar'
-        );
-    }
-
+    
 }

@@ -15,6 +15,7 @@ class CreateUsersTable extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->uuid('id');
+            $table->integer('program_id')->unsigned();
             $table->string('first_name')->default('');
             $table->string('last_name')->default('');
             $table->string('email');
@@ -45,6 +46,6 @@ class CreateUsersTable extends Migration
     public function down()
     {
         Schema::dropIfExists('users');
-        DB::unprepared('DROP TRIGGER IF EXISTS `before_insert_users`');
+        //DB::unprepared('DROP TRIGGER `before_insert_users`');
     }
 }

@@ -13,18 +13,35 @@ use Illuminate\Http\Request;
 |
 */
 
-Route::middleware('auth:api')->get('/user', function (Request $request) {
+Route::get('/user', function (Request $request) {
     return $request->user();
-});
+})->middleware('auth:api');
 
 $api = app('Dingo\Api\Routing\Router');
 
 $api->version('v0.1.0', function ($api) {
 
-    $api->group(['middleware' => 'bindings'], function($api){
+    $api->group(['middleware' => ['api.auth']], function($api) {
 
-        $api->get('users/{user}/transactions', 'App\Http\Controllers\UserController@api_fetchTransactionData');
+        $api->group(['middleware' => 'role:Super-Admin,Master-Admin'], function() use ($api) {
+            $api->get('users/{id}', function ($id) {
+                return ["response" => $id];
+            });
+
+            $api->resource('userregistration', 'App\Http\Controllers\UserRegistrationController', ['only' => [
+                'store'
+            ]]);
+
+            $api->get('userresponses', 'App\Http\Controllers\FormUserResponseController@api_fetchResponseData');
+            $api->get('userresponses/{registration_number}', 'App\Http\Controllers\FormUserResponseController@api_fetchRegistrationResponseData');
+
+            $api->put('userregistrationdischargedate/{registration_number}', 'App\Http\Controllers\UserRegistrationController@api_dischargeDate');
+
+        });
 
     });
+
+    $api->resource('authenticate', 'App\Http\Controllers\AuthenticateController', ['only' => ['index']]);
+    $api->post('authenticate', 'App\Http\Controllers\AuthenticateController@authenticate');
 
 });

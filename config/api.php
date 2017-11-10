@@ -46,7 +46,7 @@ return [
     |
     */
 
-    'version' => env('API_VERSION', 'v1'),
+    'version' => env('API_VERSION', 'v0.1.0'),
 
     /*
     |--------------------------------------------------------------------------
@@ -169,7 +169,7 @@ return [
     */
 
     'auth' => [
-
+        'jwt' => 'Dingo\Api\Auth\Provider\JWT',
     ],
 
     /*
@@ -208,7 +208,7 @@ return [
     |
     | Responses can be returned in multiple formats by registering different
     | response formatters. You can also customize an existing response
-    | formatter with a number of options to configure its output.
+    | formatter.
     |
     */
 
@@ -217,16 +217,6 @@ return [
     'formats' => [
 
         'json' => Dingo\Api\Http\Response\Format\Json::class,
-
-    ],
-
-    'formatsOptions' => [
-
-        'json' => [
-            'pretty_print' => env('API_JSON_FORMAT_PRETTY_PRINT_ENABLED', false),
-            'indent_style' => env('API_JSON_FORMAT_INDENT_STYLE', 'space'),
-            'indent_size' => env('API_JSON_FORMAT_INDENT_SIZE', 2),
-        ],
 
     ],
 
